@@ -41,7 +41,7 @@ let magnitude (parts : List<float<_>>) =
     parts |> List.map (fun x -> x * x) |> List.sum |> sqrt
 
 let maxTraction vehicle road = 
-    vehicle.model.traction vehicle.hasTraction road * g 
+    vehicle.model.traction true road * g 
 
 let maxForward vehicle : float<metre/second^2>= 
     (vehicle.model.maxPower / sqrt (vehicle.vx * vehicle.vx + vehicle.vy * vehicle.vy) - vehicle.model.drag) / vehicle.model.mass
@@ -60,7 +60,7 @@ let calculateAcceleration vehicle road =
 let simulateVehicle control vehicle road time = 
     let power, steering, braking = control vehicle road
     let ax, ay = calculateAcceleration vehicle road
-    let (|Negative|Positive|Zero|) (num : float<_>)= if num < -0.1<_> then Negative elif num > 0.1<_> then Positive else Zero
+    let (|Positive|Negative|Zero|) n = if n > 0.<_> then Positive elif n < 0.<_> then Negative else Zero
     {
         model = vehicle.model
         x = vehicle.x + vehicle.vx * time
@@ -70,18 +70,47 @@ let simulateVehicle control vehicle road time =
         power = power
         steering = steering
         braking = braking
-        heading = match vehicle.vx with 
-            | Zero -> match vehicle.vy with
-                | Zero -> vehicle.heading
-                | Positive -> Math.PI / 2.0
-                | Negative -> -Math.PI / 2.0
+        heading = match vehicle.vx with
+            | Zero -> match vehicle.vy with 
+                |Zero -> vehicle.heading
+                |Positive -> Math.PI/2.
+                |Negative -> -Math.PI/2.
             | Positive -> atan2 vehicle.vy vehicle.vx
-            | Negative -> atan2 vehicle.vy vehicle.vx - Math.PI
+            | Negative -> Math.PI + atan2 vehicle.vy vehicle.vx
+                 
     }
-
-
-
+let rec next prev n =
+    if n = 0 then prev
+    else
+        let r = simulateVehicle (fun vehicle _ -> (vehicle.model.idlePower, 0.</metre>, 0.<newton>)) prev {Pavement=1; Covering=1} 1.<second>
+        printfn "%A" r
+        next r (n-1)
 [<EntryPoint>]
 let main argv =
-    printfn "Hello World from F#!"
+    let m = { 
+        width = 2.<metre>
+        length = 5.<metre>
+        mass = 2000.<kilogram>
+        turningRadius = 5.<metre>
+        traction = (fun a b -> 0.9)
+        drag = 1000.<newton>
+        maxPower = 70000.<watt>
+        idlePower = 2000.<watt>
+    }
+    let v = {
+        model = m
+        x = 0.<metre>
+        y = 0.<metre>
+        vx = 10.<metre/second>
+        vy = 0.<metre/second>
+        power = 0.<watt>
+        braking = 0.<newton>
+        steering = 0.</metre>
+        heading = 0.
+    }
+
+    next v 100 |> ignore
+
+    Console.In.ReadLine () |> ignore
+
     0 // return an integer exit code
